@@ -326,9 +326,11 @@ export function resolveCommandAuthorization(params: {
       ? senderCandidates.find((candidate) => commandsAllowFromList.includes(candidate))
       : undefined;
     isAuthorizedSender = commandsAllowAll || Boolean(matchedCommandsAllowFrom);
+    console.error(`[DEBUG-RESET] command-auth: commandsAllowFrom path — commandsAllowAll=${commandsAllowAll}, matchedCommandsAllowFrom=${matchedCommandsAllowFrom}, isAuthorizedSender=${isAuthorizedSender}`);
   } else {
     // Fall back to existing behavior
     isAuthorizedSender = commandAuthorized && isOwnerForCommands;
+    console.error(`[DEBUG-RESET] command-auth: fallback path — commandAuthorized=${commandAuthorized}, isOwnerForCommands=${isOwnerForCommands}, isAuthorizedSender=${isAuthorizedSender}, enforceOwner=${enforceOwner}, requireOwner=${requireOwner}, ownerAllowlistConfigured=${ownerAllowlistConfigured}, senderIsOwner=${senderIsOwner}, allowAll=${allowAll}, ownerList=${JSON.stringify(ownerList)}, senderCandidates=${JSON.stringify(senderCandidates)}`);
   }
 
   return {

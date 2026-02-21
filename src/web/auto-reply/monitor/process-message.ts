@@ -102,10 +102,10 @@ async function resolveWhatsAppCommandAuthorized(params: {
       : params.msg.selfE164
         ? [params.msg.selfE164]
         : [];
-  if (allowFrom.some((v) => String(v).trim() === "*")) {
-    return true;
-  }
-  return normalizeAllowFromE164(allowFrom).includes(senderE164);
+  const normalizedAllowFrom = normalizeAllowFromE164(allowFrom);
+  const result = allowFrom.some((v) => String(v).trim() === "*") || normalizedAllowFrom.includes(senderE164);
+  console.error(`[DEBUG-RESET] resolveWhatsAppCommandAuthorized: senderE164=${senderE164}, configuredAllowFrom=${JSON.stringify(configuredAllowFrom)}, combinedAllowFrom=${JSON.stringify(combinedAllowFrom)}, selfE164=${params.msg.selfE164}, allowFrom=${JSON.stringify(allowFrom)}, normalizedAllowFrom=${JSON.stringify(normalizedAllowFrom)}, result=${result}`);
+  return result;
 }
 
 export async function processMessage(params: {
@@ -253,9 +253,11 @@ export async function processMessage(params: {
   const mediaLocalRoots = getAgentScopedMediaLocalRoots(params.cfg, params.route.agentId);
   let didLogHeartbeatStrip = false;
   let didSendReply = false;
-  const commandAuthorized = shouldComputeCommandAuthorized(params.msg.body, params.cfg)
+  const shouldCompute = shouldComputeCommandAuthorized(params.msg.body, params.cfg);
+  const commandAuthorized = shouldCompute
     ? await resolveWhatsAppCommandAuthorized({ cfg: params.cfg, msg: params.msg })
     : undefined;
+  console.error(`[DEBUG-RESET] process-message: body=${JSON.stringify(params.msg.body?.slice(0, 40))}, shouldCompute=${shouldCompute}, commandAuthorized=${commandAuthorized}, selfE164=${params.msg.selfE164}, senderE164=${params.msg.senderE164}, from=${params.msg.from}, chatType=${params.msg.chatType}`);
   const configuredResponsePrefix = params.cfg.messages?.responsePrefix;
   const { onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
     cfg: params.cfg,

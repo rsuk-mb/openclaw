@@ -8,14 +8,44 @@ services:
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+      # Docker-in-Docker volume path translation (Windows Docker Desktop):
+      # The gateway creates sandbox containers via the shared Docker socket.
+      # Volume source paths must use the Docker host format, not container-internal paths.
+      OPENCLAW_DOCKER_CONTAINER_DIR: /home/node/.openclaw
+      OPENCLAW_DOCKER_HOST_DIR: ${OPENCLAW_CONFIG_DIR}
+      # Required for file watchers on Windows bind mounts (no inotify across 9P)
+      CHOKIDAR_USEPOLLING: "true"
+      # Browser: path for Playwright's bundled Chromium (if baked into image)
+      PLAYWRIGHT_BROWSERS_PATH: /root/.cache/ms-playwright
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_AIRLOCK_DIR}:/home/node/airlock
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
       - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
+    # Allow gateway to reach host-mapped ports (needed for sandbox browser CDP in DinD)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Explicit DNS (Docker Desktop on Windows sometimes breaks DNS via 127.0.0.11)
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     init: true
     restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+    # Log rotation (prevents unbounded disk growth)
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     command:
       [
         "node",
@@ -26,6 +56,7 @@ services:
         "--port",
         "18789",
       ]
+    user: root
 
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
@@ -40,6 +71,7 @@ services:
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_AIRLOCK_DIR}:/home/node/airlock
     stdin_open: true
     tty: true
     init: true

@@ -156,6 +156,8 @@ export async function monitorWebInbox(options: {
       return;
     }
     for (const msg of upsert.messages ?? []) {
+      const _dbgBody = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").slice(0, 40);
+      console.error(`[DEBUG-RESET] monitor: upsert.type=${upsert.type}, fromMe=${msg.key?.fromMe}, remoteJid=${msg.key?.remoteJid}, body=${JSON.stringify(_dbgBody)}`);
       recordChannelActivity({
         channel: "whatsapp",
         accountId: options.accountId,
@@ -213,6 +215,7 @@ export async function monitorWebInbox(options: {
         remoteJid,
       });
       if (!access.allowed) {
+        console.error(`[DEBUG-RESET] monitor: ACCESS DENIED for from=${from}, selfE164=${selfE164}, isSelfChat=${access.isSelfChat}, isFromMe=${Boolean(msg.key?.fromMe)}`);
         continue;
       }
 
@@ -234,6 +237,7 @@ export async function monitorWebInbox(options: {
 
       // If this is history/offline catch-up, mark read above but skip auto-reply.
       if (upsert.type === "append") {
+        console.error(`[DEBUG-RESET] monitor: SKIPPING append-type message (history catch-up), body=${JSON.stringify(body?.slice(0, 40))}`);
         continue;
       }
 

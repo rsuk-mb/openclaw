@@ -162,11 +162,14 @@ export async function initSessionState(params: {
   // Use CommandBody/RawBody for reset trigger matching (clean message without structural context).
   const rawBody = commandSource;
   const trimmedBody = rawBody.trim();
-  const resetAuthorized = resolveCommandAuthorization({
+  const resetAuthResult = resolveCommandAuthorization({
     ctx,
     cfg,
     commandAuthorized,
-  }).isAuthorizedSender;
+  });
+  const resetAuthorized = resetAuthResult.isAuthorizedSender;
+  // DEBUG: trace /new authorization
+  console.error(`[DEBUG-RESET] session.ts: commandAuthorized=${commandAuthorized}, resetAuthorized=${resetAuthorized}, senderIsOwner=${resetAuthResult.senderIsOwner}, from=${resetAuthResult.from}, to=${resetAuthResult.to}, body=${JSON.stringify(trimmedBody.slice(0, 40))}`);
   // Timestamp/message prefixes (e.g. "[Dec 4 17:35] ") are added by the
   // web inbox before we get here. They prevented reset triggers like "/new"
   // from matching, so strip structural wrappers when checking for resets.
@@ -179,18 +182,22 @@ export async function initSessionState(params: {
   const trimmedBodyLower = trimmedBody.toLowerCase();
   const strippedForResetLower = strippedForReset.toLowerCase();
 
+  console.error(`[DEBUG-RESET] session.ts: resetTriggers=${JSON.stringify(resetTriggers)}, trimmedBodyLower=${JSON.stringify(trimmedBodyLower)}, strippedForResetLower=${JSON.stringify(strippedForResetLower)}`);
   for (const trigger of resetTriggers) {
     if (!trigger) {
       continue;
     }
     if (!resetAuthorized) {
+      console.error(`[DEBUG-RESET] session.ts: breaking from trigger loop — resetAuthorized=false`);
       break;
     }
     const triggerLower = trigger.toLowerCase();
+    console.error(`[DEBUG-RESET] session.ts: checking trigger=${JSON.stringify(triggerLower)} vs body=${JSON.stringify(trimmedBodyLower)} stripped=${JSON.stringify(strippedForResetLower)} exactMatch=${trimmedBodyLower === triggerLower || strippedForResetLower === triggerLower}`);
     if (trimmedBodyLower === triggerLower || strippedForResetLower === triggerLower) {
       isNewSession = true;
       bodyStripped = "";
       resetTriggered = true;
+      console.error(`[DEBUG-RESET] session.ts: RESET TRIGGERED by trigger=${triggerLower}`);
       break;
     }
     const triggerPrefixLower = `${triggerLower} `;

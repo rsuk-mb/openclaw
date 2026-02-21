@@ -14,6 +14,7 @@ import {
   DEFAULT_SANDBOX_BROWSER_IMAGE,
   SANDBOX_AGENT_WORKSPACE_MOUNT,
   SANDBOX_BROWSER_SECURITY_HASH_EPOCH,
+  translateVolumeSourcePath,
 } from "./constants.js";
 import {
   buildSandboxCreateArgs,
@@ -40,9 +41,35 @@ import type { SandboxBrowserContext, SandboxConfig } from "./types.js";
 const HOT_BROWSER_WINDOW_MS = 5 * 60 * 1000;
 const CDP_SOURCE_RANGE_ENV_KEY = "OPENCLAW_BROWSER_CDP_SOURCE_RANGE";
 
+/**
+ * In Docker-in-Docker (gateway running inside a container), host-mapped ports
+ * are on the Docker host's loopback, not the gateway container's loopback.
+ * Resolve `host.docker.internal` to its IP (requires extra_hosts in
+ * docker-compose.yml).  Chrome DevTools rejects non-IP/non-localhost Host
+ * headers, so we must use the resolved numeric IP, not the hostname.
+ * Falls back to 127.0.0.1 when not in DinD.
+ */
+import { readFileSync } from "node:fs";
+
+const SANDBOX_CDP_HOST = (() => {
+  if (!process.env.OPENCLAW_DOCKER_HOST_DIR) {
+    return "127.0.0.1";
+  }
+  try {
+    const hosts = readFileSync("/etc/hosts", "utf-8");
+    const match = hosts.match(/^(\S+)\s+host\.docker\.internal/m);
+    if (match) {
+      return match[1];
+    }
+  } catch {
+    // /etc/hosts not readable
+  }
+  return "127.0.0.1";
+})();
+
 async function waitForSandboxCdp(params: { cdpPort: number; timeoutMs: number }): Promise<boolean> {
   const deadline = Date.now() + Math.max(0, params.timeoutMs);
-  const url = `http://127.0.0.1:${params.cdpPort}/json/version`;
+  const url = `http://${SANDBOX_CDP_HOST}:${params.cdpPort}/json/version`;
   while (Date.now() < deadline) {
     try {
       const ctrl = new AbortController();
@@ -69,14 +96,14 @@ function buildSandboxBrowserResolvedConfig(params: {
   headless: boolean;
   evaluateEnabled: boolean;
 }): ResolvedBrowserConfig {
-  const cdpHost = "127.0.0.1";
+  const cdpHost = SANDBOX_CDP_HOST;
   return {
     enabled: true,
     evaluateEnabled: params.evaluateEnabled,
     controlPort: params.controlPort,
     cdpProtocol: "http",
     cdpHost,
-    cdpIsLoopback: true,
+    cdpIsLoopback: cdpHost === "127.0.0.1",
     remoteCdpTimeoutMs: 1500,
     remoteCdpHandshakeTimeoutMs: 3000,
     color: DEFAULT_OPENCLAW_BROWSER_COLOR,
@@ -232,12 +259,12 @@ export async function ensureSandboxBrowser(params: {
       params.cfg.workspaceAccess === "ro" && params.workspaceDir === params.agentWorkspaceDir
         ? ":ro"
         : "";
-    args.push("-v", `${params.workspaceDir}:${params.cfg.docker.workdir}${mainMountSuffix}`);
+    args.push("-v", `${translateVolumeSourcePath(params.workspaceDir)}:${params.cfg.docker.workdir}${mainMountSuffix}`);
     if (params.cfg.workspaceAccess !== "none" && params.workspaceDir !== params.agentWorkspaceDir) {
       const agentMountSuffix = params.cfg.workspaceAccess === "ro" ? ":ro" : "";
       args.push(
         "-v",
-        `${params.agentWorkspaceDir}:${SANDBOX_AGENT_WORKSPACE_MOUNT}${agentMountSuffix}`,
+        `${translateVolumeSourcePath(params.agentWorkspaceDir)}:${SANDBOX_AGENT_WORKSPACE_MOUNT}${agentMountSuffix}`,
       );
     }
     args.push("-p", `127.0.0.1::${params.cfg.browser.cdpPort}`);

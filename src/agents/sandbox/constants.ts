@@ -49,6 +49,27 @@ export const DEFAULT_SANDBOX_BROWSER_AUTOSTART_TIMEOUT_MS = 12_000;
 
 export const SANDBOX_AGENT_WORKSPACE_MOUNT = "/agent";
 
+/**
+ * Translates a container-internal path to a Docker host path for volume mounts.
+ *
+ * In Docker-in-Docker scenarios (e.g. gateway running in Docker Desktop on
+ * Windows/Mac), the gateway's internal paths don't resolve on the Docker host.
+ * This replaces a known container-side prefix with the corresponding host-side
+ * prefix so that `-v` source paths point to real storage.
+ *
+ * Enable by setting both env vars in the gateway container:
+ *   OPENCLAW_DOCKER_CONTAINER_DIR=/home/node/.openclaw
+ *   OPENCLAW_DOCKER_HOST_DIR=/c/Users/<user>/.openclaw
+ */
+export function translateVolumeSourcePath(containerPath: string): string {
+  const hostDir = process.env.OPENCLAW_DOCKER_HOST_DIR;
+  const containerDir = process.env.OPENCLAW_DOCKER_CONTAINER_DIR;
+  if (hostDir && containerDir && containerPath.startsWith(containerDir)) {
+    return hostDir + containerPath.slice(containerDir.length);
+  }
+  return containerPath;
+}
+
 export const SANDBOX_STATE_DIR = path.join(STATE_DIR, "sandbox");
 export const SANDBOX_REGISTRY_PATH = path.join(SANDBOX_STATE_DIR, "containers.json");
 export const SANDBOX_BROWSER_REGISTRY_PATH = path.join(SANDBOX_STATE_DIR, "browsers.json");

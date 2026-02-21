@@ -70,7 +70,9 @@ export async function handleCommands(params: HandleCommandsParams): Promise<Comm
   }
   const resetMatch = params.command.commandBodyNormalized.match(/^\/(new|reset)(?:\s|$)/);
   const resetRequested = Boolean(resetMatch);
+  console.error(`[DEBUG-RESET] commands-core: commandBodyNormalized=${JSON.stringify(params.command.commandBodyNormalized?.slice(0, 40))}, resetMatch=${JSON.stringify(resetMatch?.[0])}, resetRequested=${resetRequested}, isAuthorizedSender=${params.command.isAuthorizedSender}, senderId=${params.command.senderId}`);
   if (resetRequested && !params.command.isAuthorizedSender) {
+    console.error(`[DEBUG-RESET] commands-core: BLOCKING /reset — unauthorized sender: ${params.command.senderId || "<unknown>"}`);
     logVerbose(
       `Ignoring /reset from unauthorized sender: ${params.command.senderId || "<unknown>"}`,
     );

@@ -108,7 +108,11 @@ export function execDockerRaw(
 import { formatCliCommand } from "../../cli/command-format.js";
 import { defaultRuntime } from "../../runtime.js";
 import { computeSandboxConfigHash } from "./config-hash.js";
-import { DEFAULT_SANDBOX_IMAGE, SANDBOX_AGENT_WORKSPACE_MOUNT } from "./constants.js";
+import {
+  DEFAULT_SANDBOX_IMAGE,
+  SANDBOX_AGENT_WORKSPACE_MOUNT,
+  translateVolumeSourcePath,
+} from "./constants.js";
 import { readRegistry, updateRegistry } from "./registry.js";
 import { resolveSandboxAgentId, resolveSandboxScopeKey, slugifySessionKey } from "./shared.js";
 import type { SandboxConfig, SandboxDockerConfig, SandboxWorkspaceAccess } from "./types.js";
@@ -371,18 +375,38 @@ async function createSandboxContainer(params: {
   args.push("--workdir", cfg.workdir);
   const mainMountSuffix =
     params.workspaceAccess === "ro" && workspaceDir === params.agentWorkspaceDir ? ":ro" : "";
-  args.push("-v", `${workspaceDir}:${cfg.workdir}${mainMountSuffix}`);
+  args.push("-v", `${translateVolumeSourcePath(workspaceDir)}:${cfg.workdir}${mainMountSuffix}`);
   if (params.workspaceAccess !== "none" && workspaceDir !== params.agentWorkspaceDir) {
     const agentMountSuffix = params.workspaceAccess === "ro" ? ":ro" : "";
     args.push(
       "-v",
-      `${params.agentWorkspaceDir}:${SANDBOX_AGENT_WORKSPACE_MOUNT}${agentMountSuffix}`,
+      `${translateVolumeSourcePath(params.agentWorkspaceDir)}:${SANDBOX_AGENT_WORKSPACE_MOUNT}${agentMountSuffix}`,
     );
   }
   args.push(cfg.image, "sleep", "infinity");
 
   await execDocker(args);
   await execDocker(["start", name]);
+
+  // In DinD on Docker Desktop (Windows/Mac), mounted volumes from the host
+  // filesystem (virtiofs) appear as root-owned. chown has no effect on virtiofs,
+  // but chmod does — make everything world-readable and directories traversable
+  // so the sandbox user can access workspace files.
+  if (process.env.OPENCLAW_DOCKER_HOST_DIR) {
+    try {
+      await execDocker([
+        "exec",
+        "--user",
+        "0:0",
+        name,
+        "sh",
+        "-c",
+        `chmod -R o+rX ${cfg.workdir} 2>/dev/null; true`,
+      ]);
+    } catch {
+      // Non-fatal: permission fix is best-effort
+    }
+  }
 
   if (cfg.setupCommand?.trim()) {
     await execDocker(["exec", "-i", name, "sh", "-lc", cfg.setupCommand]);
