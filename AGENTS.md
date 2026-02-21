@@ -1,5 +1,16 @@
 # Repository Guidelines
 
+## Local deployment (Marvin) — MANDATORY READING
+
+This repo has local patches applied on the `marvin/local-patches` branch for our "Marvin" deployment. Before working on any deployment, infrastructure, patching, or configuration task, **you must read the marvin-ops docs first**:
+
+- `C:\repos\marvin-ops\CLAUDE.md` — index and mandatory reading list
+- `C:\repos\marvin-ops\docs\architecture.md` — container topology, design decisions, patches
+- `C:\repos\marvin-ops\patches\README.md` — all local patches with reapply instructions
+- `C:\repos\marvin-ops\docs\maintenance.md` — rebuild, update, troubleshooting procedures
+
+Do not guess about the deployment setup — it uses Docker-in-Docker, custom path translation, local patches, and non-standard configuration that differs significantly from a standard OpenClaw install.
+
 - Repo: https://github.com/openclaw/openclaw
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
 
