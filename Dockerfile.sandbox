@@ -13,6 +13,9 @@ RUN apt-get update \
     ripgrep \
   && rm -rf /var/lib/apt/lists/*
 
+# uv: Python package runner (required by nano-banana-pro and other Python-based skills)
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 RUN useradd --create-home --shell /bin/bash sandbox
 USER sandbox
 WORKDIR /home/sandbox

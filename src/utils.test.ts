@@ -12,6 +12,7 @@ import {
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
+  resolveOutboundJid,
   resolveUserPath,
   shortenHomeInString,
   shortenHomePath,
@@ -133,6 +134,60 @@ describe("jidToE164", () => {
         fs.writeFileSync(mappingPath, JSON.stringify("123321"));
         expect(jidToE164("321@lid", { lidMappingDirs: [first, second] })).toBe("+123321");
       });
+    });
+  });
+});
+
+describe("resolveOutboundJid", () => {
+  it("falls back to @s.whatsapp.net when no forward mapping exists", () => {
+    expect(resolveOutboundJid("+1555123")).toBe("1555123@s.whatsapp.net");
+  });
+
+  it("strips whatsapp: prefix before resolving", () => {
+    expect(resolveOutboundJid("whatsapp:+1555123")).toBe("1555123@s.whatsapp.net");
+  });
+
+  it("preserves existing JIDs with @ sign", () => {
+    expect(resolveOutboundJid("123456789-987654321@g.us")).toBe("123456789-987654321@g.us");
+    expect(resolveOutboundJid("1555123@s.whatsapp.net")).toBe("1555123@s.whatsapp.net");
+    expect(resolveOutboundJid("999@lid")).toBe("999@lid");
+  });
+
+  it("reads forward LID mapping from authDir", () => {
+    withTempDirSync("openclaw-fwd-", (authDir) => {
+      fs.writeFileSync(
+        path.join(authDir, "lid-mapping-1555123.json"),
+        JSON.stringify("98765"),
+      );
+      expect(resolveOutboundJid("+1555123", { authDir })).toBe("98765@lid");
+    });
+  });
+
+  it("reads forward LID mapping from lidMappingDirs", () => {
+    withTempDirSync("openclaw-fwd-a-", (first) => {
+      withTempDirSync("openclaw-fwd-b-", (second) => {
+        fs.writeFileSync(
+          path.join(second, "lid-mapping-4440001.json"),
+          JSON.stringify("55555"),
+        );
+        expect(resolveOutboundJid("+4440001", { lidMappingDirs: [first, second] })).toBe(
+          "55555@lid",
+        );
+      });
+    });
+  });
+
+  it("falls back to @s.whatsapp.net when mapping file contains null", () => {
+    withTempDirSync("openclaw-fwd-null-", (authDir) => {
+      fs.writeFileSync(path.join(authDir, "lid-mapping-1555999.json"), "null");
+      expect(resolveOutboundJid("+1555999", { authDir })).toBe("1555999@s.whatsapp.net");
+    });
+  });
+
+  it("handles numeric LID values in mapping file", () => {
+    withTempDirSync("openclaw-fwd-num-", (authDir) => {
+      fs.writeFileSync(path.join(authDir, "lid-mapping-4440002.json"), "12345");
+      expect(resolveOutboundJid("+4440002", { authDir })).toBe("12345@lid");
     });
   });
 });

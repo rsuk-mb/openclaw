@@ -1,6 +1,6 @@
 import type { AnyMessageContent, WAPresence } from "@whiskeysockets/baileys";
 import { recordChannelActivity } from "../../infra/channel-activity.js";
-import { toWhatsappJid } from "../../utils.js";
+import { resolveOutboundJid, type JidToE164Options } from "../../utils.js";
 import type { ActiveWebSendOptions } from "../active-listener.js";
 
 function recordWhatsAppOutbound(accountId: string) {
@@ -23,7 +23,11 @@ export function createWebSendApi(params: {
     sendPresenceUpdate: (presence: WAPresence, jid?: string) => Promise<unknown>;
   };
   defaultAccountId: string;
+  authDir?: string;
 }) {
+  const jidOpts: JidToE164Options | undefined = params.authDir
+    ? { authDir: params.authDir }
+    : undefined;
   return {
     sendMessage: async (
       to: string,
@@ -32,7 +36,7 @@ export function createWebSendApi(params: {
       mediaType?: string,
       sendOptions?: ActiveWebSendOptions,
     ): Promise<{ messageId: string }> => {
-      const jid = toWhatsappJid(to);
+      const jid = resolveOutboundJid(to, jidOpts);
       let payload: AnyMessageContent;
       if (mediaBuffer && mediaType) {
         if (mediaType.startsWith("image/")) {
@@ -73,7 +77,7 @@ export function createWebSendApi(params: {
       to: string,
       poll: { question: string; options: string[]; maxSelections?: number },
     ): Promise<{ messageId: string }> => {
-      const jid = toWhatsappJid(to);
+      const jid = resolveOutboundJid(to, jidOpts);
       const result = await params.sock.sendMessage(jid, {
         poll: {
           name: poll.question,
@@ -92,7 +96,7 @@ export function createWebSendApi(params: {
       fromMe: boolean,
       participant?: string,
     ): Promise<void> => {
-      const jid = toWhatsappJid(chatJid);
+      const jid = resolveOutboundJid(chatJid, jidOpts);
       await params.sock.sendMessage(jid, {
         react: {
           text: emoji,
@@ -100,13 +104,13 @@ export function createWebSendApi(params: {
             remoteJid: jid,
             id: messageId,
             fromMe,
-            participant: participant ? toWhatsappJid(participant) : undefined,
+            participant: participant ? resolveOutboundJid(participant, jidOpts) : undefined,
           },
         },
       } as AnyMessageContent);
     },
     sendComposingTo: async (to: string): Promise<void> => {
-      const jid = toWhatsappJid(to);
+      const jid = resolveOutboundJid(to, jidOpts);
       await params.sock.sendPresenceUpdate("composing", jid);
     },
   } as const;

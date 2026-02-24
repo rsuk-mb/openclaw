@@ -17,6 +17,10 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       # Browser: path for Playwright's bundled Chromium (if baked into image)
       PLAYWRIGHT_BROWSERS_PATH: /root/.cache/ms-playwright
+      # Anti-fingerprint: sandbox browser spoofing
+      OPENCLAW_BROWSER_USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+      OPENCLAW_BROWSER_LANG: "en-GB"
+      OPENCLAW_BROWSER_INIT_SCRIPT: /home/node/.openclaw/workspace/browser-init.js
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace

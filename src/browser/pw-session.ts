@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type {
   Browser,
   BrowserContext,
@@ -13,6 +14,24 @@ import { appendCdpPath, fetchJson, getHeadersWithAuth, withCdpSocket } from "./c
 import { normalizeCdpWsUrl } from "./cdp.js";
 import { getChromeWebSocketUrl } from "./chrome.js";
 import { assertBrowserNavigationAllowed, withBrowserNavigationPolicy } from "./navigation-guard.js";
+
+const _browserInitScript: string | null = (() => {
+  const scriptPath = process.env.OPENCLAW_BROWSER_INIT_SCRIPT;
+  if (!scriptPath) return null;
+  try {
+    return readFileSync(scriptPath, "utf-8");
+  } catch {
+    return null;
+  }
+})();
+
+const _initScriptApplied = new WeakSet<BrowserContext>();
+
+async function applyBrowserInitScript(context: BrowserContext): Promise<void> {
+  if (!_browserInitScript || _initScriptApplied.has(context)) return;
+  _initScriptApplied.add(context);
+  await context.addInitScript(_browserInitScript);
+}
 
 export type BrowserConsoleMessage = {
   type: string;
@@ -292,6 +311,7 @@ function observeContext(context: BrowserContext) {
   }
   observedContexts.add(context);
   ensureContextState(context);
+  applyBrowserInitScript(context).catch(() => {});
 
   for (const page of context.pages()) {
     ensurePageState(page);
@@ -731,6 +751,7 @@ export async function createPageViaPlaywright(opts: {
   const { browser } = await connectBrowser(opts.cdpUrl);
   const context = browser.contexts()[0] ?? (await browser.newContext());
   ensureContextState(context);
+  await applyBrowserInitScript(context);
 
   const page = await context.newPage();
   ensurePageState(page);

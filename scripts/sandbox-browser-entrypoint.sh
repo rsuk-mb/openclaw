@@ -17,7 +17,7 @@ NOVNC_PASSWORD="${OPENCLAW_BROWSER_NOVNC_PASSWORD:-${CLAWDBOT_BROWSER_NOVNC_PASS
 
 mkdir -p "${HOME}" "${HOME}/.chrome" "${XDG_CONFIG_HOME}" "${XDG_CACHE_HOME}"
 
-Xvfb :1 -screen 0 1280x800x24 -ac -nolisten tcp &
+Xvfb :1 -screen 0 1920x1080x24 -ac -nolisten tcp &
 
 if [[ "${HEADLESS}" == "1" ]]; then
   CHROME_ARGS=(
@@ -53,6 +53,21 @@ if [[ "${ALLOW_NO_SANDBOX}" == "1" ]]; then
     "--no-sandbox"
     "--disable-setuid-sandbox"
   )
+fi
+
+# Anti-fingerprint: suppress webdriver flag
+CHROME_ARGS+=("--disable-blink-features=AutomationControlled")
+
+# Anti-fingerprint: match real browser window size
+CHROME_ARGS+=("--window-size=1920,1080")
+
+# Anti-fingerprint: language
+CHROME_ARGS+=("--lang=${OPENCLAW_BROWSER_LANG:-en-GB}")
+
+# Anti-fingerprint: user-agent override (if set)
+BROWSER_UA="${OPENCLAW_BROWSER_USER_AGENT:-}"
+if [[ -n "${BROWSER_UA}" ]]; then
+  CHROME_ARGS+=("--user-agent=${BROWSER_UA}")
 fi
 
 chromium "${CHROME_ARGS[@]}" about:blank &

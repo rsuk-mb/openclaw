@@ -9,6 +9,9 @@ RUN corepack enable
 WORKDIR /app
 RUN chown node:node /app
 
+# uv: Python package runner (required by nano-banana-pro and other Python-based skills)
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 ARG OPENCLAW_DOCKER_APT_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \

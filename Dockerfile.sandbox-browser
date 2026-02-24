@@ -2,12 +2,16 @@ FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c503
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
+RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
     chromium \
     curl \
+    fontconfig \
     fonts-liberation \
     fonts-noto-color-emoji \
     git \
@@ -15,9 +19,11 @@ RUN apt-get update \
     novnc \
     python3 \
     socat \
+    ttf-mscorefonts-installer \
     websockify \
     x11vnc \
     xvfb \
+  && fc-cache -f \
   && rm -rf /var/lib/apt/lists/*
 
 COPY scripts/sandbox-browser-entrypoint.sh /usr/local/bin/openclaw-sandbox-browser

@@ -282,6 +282,14 @@ export async function ensureSandboxBrowser(params: {
     if (noVncEnabled && noVncPassword) {
       args.push("-e", `${NOVNC_PASSWORD_ENV_KEY}=${noVncPassword}`);
     }
+    const browserUserAgent = process.env.OPENCLAW_BROWSER_USER_AGENT;
+    if (browserUserAgent) {
+      args.push("-e", `OPENCLAW_BROWSER_USER_AGENT=${browserUserAgent}`);
+    }
+    const browserLang = process.env.OPENCLAW_BROWSER_LANG;
+    if (browserLang) {
+      args.push("-e", `OPENCLAW_BROWSER_LANG=${browserLang}`);
+    }
     args.push(browserImage);
     await execDocker(args);
     await execDocker(["start", containerName]);

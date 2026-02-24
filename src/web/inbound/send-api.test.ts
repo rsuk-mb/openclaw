@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const recordChannelActivity = vi.fn();
@@ -154,5 +157,45 @@ describe("createWebSendApi", () => {
   it("sends composing presence updates to the recipient JID", async () => {
     await api.sendComposingTo("+1555");
     expect(sendPresenceUpdate).toHaveBeenCalledWith("composing", "1555@s.whatsapp.net");
+  });
+});
+
+describe("createWebSendApi with authDir (LID-aware)", () => {
+  const sendMessage = vi.fn(async () => ({ key: { id: "msg-lid" } }));
+  const sendPresenceUpdate = vi.fn(async () => {});
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends to LID JID when forward mapping exists", async () => {
+    const authDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-send-lid-"));
+    try {
+      fs.writeFileSync(path.join(authDir, "lid-mapping-1555.json"), JSON.stringify("99887"));
+      const api = createWebSendApi({
+        sock: { sendMessage, sendPresenceUpdate },
+        defaultAccountId: "main",
+        authDir,
+      });
+      await api.sendMessage("+1555", "hello via LID");
+      expect(sendMessage).toHaveBeenCalledWith("99887@lid", { text: "hello via LID" });
+    } finally {
+      fs.rmSync(authDir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to @s.whatsapp.net when no forward mapping exists", async () => {
+    const authDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-send-nolid-"));
+    try {
+      const api = createWebSendApi({
+        sock: { sendMessage, sendPresenceUpdate },
+        defaultAccountId: "main",
+        authDir,
+      });
+      await api.sendMessage("+1555", "hello fallback");
+      expect(sendMessage).toHaveBeenCalledWith("1555@s.whatsapp.net", { text: "hello fallback" });
+    } finally {
+      fs.rmSync(authDir, { recursive: true, force: true });
+    }
   });
 });

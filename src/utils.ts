@@ -177,6 +177,25 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
   return null;
 }
 
+function readLidForwardMapping(e164Digits: string, opts?: JidToE164Options): string | null {
+  const mappingFilename = `lid-mapping-${e164Digits}.json`;
+  const mappingDirs = resolveLidMappingDirs(opts);
+  for (const dir of mappingDirs) {
+    const mappingPath = path.join(dir, mappingFilename);
+    try {
+      const data = fs.readFileSync(mappingPath, "utf8");
+      const lid = JSON.parse(data) as string | number | null;
+      if (lid === null || lid === undefined) {
+        continue;
+      }
+      return String(lid);
+    } catch {
+      // Try the next location.
+    }
+  }
+  return null;
+}
+
 export function jidToE164(jid: string, opts?: JidToE164Options): string | null {
   // Convert a WhatsApp JID (with optional device suffix, e.g. 1234:1@s.whatsapp.net) back to +1234.
   const match = jid.match(/^(\d+)(?::\d+)?@(s\.whatsapp\.net|hosted)$/);
@@ -231,6 +250,27 @@ export async function resolveJidToE164(
     }
     return null;
   }
+}
+
+/**
+ * Resolve the outbound JID for a phone number, checking for a forward LID mapping
+ * before falling back to the standard `@s.whatsapp.net` JID.
+ *
+ * On LID-migrated accounts the correct JID is `{lid}@lid`; the mapping is stored in
+ * `lid-mapping-{E164_DIGITS}.json` files written by the Baileys auth layer.
+ */
+export function resolveOutboundJid(number: string, opts?: JidToE164Options): string {
+  const withoutPrefix = number.replace(/^whatsapp:/, "").trim();
+  if (withoutPrefix.includes("@")) {
+    return withoutPrefix;
+  }
+  const e164 = normalizeE164(withoutPrefix);
+  const digits = e164.replace(/\D/g, "");
+  const lid = readLidForwardMapping(digits, opts);
+  if (lid) {
+    return `${lid}@lid`;
+  }
+  return `${digits}@s.whatsapp.net`;
 }
 
 export function sleep(ms: number) {

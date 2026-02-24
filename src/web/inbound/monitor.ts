@@ -235,17 +235,17 @@ export async function monitorWebInbox(options: {
         logVerbose(`Self-chat mode: skipping read receipt for ${id}`);
       }
 
-      // If this is history/offline catch-up, mark read above but skip auto-reply.
-      if (upsert.type === "append") {
-        console.error(`[DEBUG-RESET] monitor: SKIPPING append-type message (history catch-up), body=${JSON.stringify(body?.slice(0, 40))}`);
-        continue;
-      }
-
       const location = extractLocationData(msg.message ?? undefined);
       const locationText = location ? formatLocationText(location) : undefined;
       let body = extractText(msg.message ?? undefined);
       if (locationText) {
         body = [body, locationText].filter(Boolean).join("\n").trim();
+      }
+
+      // If this is history/offline catch-up, mark read above but skip auto-reply.
+      if (upsert.type === "append") {
+        console.error(`[DEBUG-RESET] monitor: SKIPPING append-type message (history catch-up), body=${JSON.stringify(body?.slice(0, 40))}`);
+        continue;
       }
       if (!body) {
         body = extractMediaPlaceholder(msg.message ?? undefined);
@@ -374,6 +374,7 @@ export async function monitorWebInbox(options: {
       sendPresenceUpdate: (presence, jid?: string) => sock.sendPresenceUpdate(presence, jid),
     },
     defaultAccountId: options.accountId,
+    authDir: options.authDir,
   });
 
   return {
