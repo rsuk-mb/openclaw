@@ -271,6 +271,7 @@ export async function ensureSandboxBrowser(params: {
     if (noVncEnabled) {
       args.push("-p", `127.0.0.1::${params.cfg.browser.noVncPort}`);
     }
+    args.push("-e", `OPENCLAW_BROWSER_NO_SANDBOX=1`);
     args.push("-e", `OPENCLAW_BROWSER_HEADLESS=${params.cfg.browser.headless ? "1" : "0"}`);
     args.push("-e", `OPENCLAW_BROWSER_ENABLE_NOVNC=${params.cfg.browser.enableNoVnc ? "1" : "0"}`);
     args.push("-e", `OPENCLAW_BROWSER_CDP_PORT=${params.cfg.browser.cdpPort}`);
